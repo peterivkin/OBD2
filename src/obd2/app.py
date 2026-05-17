@@ -1,8 +1,6 @@
 VERSION = "4"
 
 """
-111111
-Test
 Чтение OBDII
 """
 
