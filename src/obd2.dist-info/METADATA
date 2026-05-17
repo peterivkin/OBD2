@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Briefcase-Version: 0.4.2
+Name: obd2
+Formal-Name: OBD2
+App-ID: com.example.obd2
+Version: 0.0.1
+Home-page: https://example.com/obd2
+Download-URL: https://example.com/obd2
+Author: Ivkin
+Author-email: ivkin@example.com
+Summary: Характеристики движения

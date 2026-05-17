@@ -1,0 +1,9 @@
+# Содержимое .gitignore
+build/
+dist/
+__pycache__/
+*.pyc
+*.log
+.venv/
+.env
+.beeware/
