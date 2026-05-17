@@ -414,7 +414,7 @@ class OBDApp(toga.App):
         else:
             self.status_label.text = "Ошибка подключения"
             self.error_label.text = error_msg
-            self.connect_btn.text = "Подключиться к " + ELM327_ADDRESS
+            self.connect_btn.text = "Подключиться"  #+ ELM327_ADDRESS
 
     # ── Мониторинг ────────────────────────────────────────────────────────────
     def _monitor_loop(self):
