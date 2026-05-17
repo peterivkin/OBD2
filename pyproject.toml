@@ -201,6 +201,10 @@ permission."android.permission.BLUETOOTH_SCAN" = true
 permission."android.permission.WAKE_LOCK" = true
 permission."android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" = true
 permission."android.permission.ACCESS_BACKGROUND_LOCATION" = true
+permission."android.permission.FOREGROUND_SERVICE" = true
+
+
+
 
 #base_theme = "Theme.MaterialComponents.Light.DarkActionBar"
 # Убедитесь, что тема без ActionBar
