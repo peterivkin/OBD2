@@ -1,4 +1,4 @@
-VERSION = "4"
+VERSION = "0"
 
 """
 Чтение OBDII
@@ -94,15 +94,22 @@ class OBDApp(toga.App):
             style=Pack(width=100, margin_left=5)
         )
 
+        self.back_switch = toga.Switch(
+            "Обратно",
+            value=False,
+            on_change=self.on_back_toggle,
+            style=Pack(margin_left=5)
+        )
+
         # Добавьте его в один из ROW боксов
         speed_corr_box = toga.Box(
             children=[
+                self.back_switch,
                 toga.Label("Коррекция:", style=Pack(margin_right=5)),
-                self.speed_corr_input
+                self.speed_corr_input,
             ],
             style=Pack(direction=ROW, margin=5)
-        )
-        #main_box.add(speed_corr_box)
+        )        
 
         self.dist_label    = self._make_card("Расстояние",    "— м ")
 
@@ -273,6 +280,16 @@ class OBDApp(toga.App):
         except (ValueError, TypeError):
             pass
 
+    def on_back_toggle(self, widget):
+        """Обработчик переключения чекбокса коррекции."""
+        status = "включена" if widget.value else "выключена"
+        # Изменить цвет текста на красный
+        if widget.value : self.dist_label.style.color = 'red'
+        else : self.dist_label.style.color = 'black'
+        
+        
+        self.logger.info(f"Коррекция скорости {status}")
+
     # ---------- колбэк обновления координат ----------
     def on_location_update(self, service, *, location, altitude, **kwargs):
         """
@@ -431,13 +448,11 @@ class OBDApp(toga.App):
         except ValueError:
             corr = 1.0  # Если ввели не число, используем 1.0
         self.koef = corr
-        
-        
+        self.elm.back= self.back_switch.value
         
         self.speed_label.text = f"{self.elm.speed} - км/ч"
-        self.dist_label.text = f"{int(float(self.elm.dist))}-м | корр.-{int(float(self.elm.dist) * float(self.koef) )}-м" 
-        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | корр.-{int(float(self.elm.full_dist) * float(self.koef) )}-м" 
-            
+        self.dist_label.text = f"{int(float(self.elm.dist))}-м | корр.{int(float(self.elm.dist) * float(self.koef) )}-м" 
+        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | корр.{int(float(self.elm.full_dist) * float(self.koef) )}-м" 
 
     async def _on_monitor_error(self, msg: str):
         self._monitoring = False
@@ -445,9 +460,7 @@ class OBDApp(toga.App):
         self.error_label.text = msg
         self.connect_btn.text = "Подключиться к WiFi"
         #self.clear_btn.enabled = True #False ivkin
-
     # ── DTC ───────────────────────────────────────────────────────────────────
-
 
     def on_clear_dist(self, widget):
 # В UI-потоке (запись)

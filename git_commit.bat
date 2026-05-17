@@ -2,6 +2,6 @@
 ::git branch -M main
 ::git push -u origin main
 git add .
-git commit -m "Empty"
+git commit -m "ƒобавил back(движение назад) "
 
 ::git remote add origin https://github.com/ваш_логин/ваш_репозиторий.git

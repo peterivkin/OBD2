@@ -14,7 +14,7 @@ ELM_SLEEP = 0.05    ################################################
 IS_BLUETOOTH = False #True    ####################################
 
 ELM_IP = "192.168.0.10"
-#ELM_IP = "127.0.0.1"
+ELM_IP = "127.0.0.1"
 ELM_PORT = 35000
 
 ################################
@@ -78,6 +78,7 @@ class ELM327:
         self.cur_time = time.monotonic()
         self.dist = 0
         self.full_dist = 0
+        self.back = False
         
 
     def connect(self, timeout: float = 5.0) -> bool:
@@ -218,6 +219,8 @@ class ELM327:
 
         try:
             while True:
+                if self.back : koeff = -1
+                else : koeff = 1
                 now = time.monotonic()
                 speed_kmh = self.read_speed_kmh()
                 time.sleep(ELM_SLEEP) # притормозил адаптер
@@ -229,8 +232,8 @@ class ELM327:
                         dt = now - prev_t
                         # Метод трапеций: усредняем соседние замеры
                         avg_ms = (prev_speed_ms + speed_ms) / 2
-                        distance_m += avg_ms * dt
-                        f_distance_m += avg_ms * dt
+                        distance_m += koeff * avg_ms * dt      # умножил на коэффициент возврата (1 или -1 )
+                        f_distance_m += koeff * avg_ms * dt
 
                     prev_speed_ms = speed_ms
                     prev_t = now
