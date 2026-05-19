@@ -5,6 +5,7 @@ import socket
 import threading
 import time
 
+import sys
 import logging
 from pathlib import Path
 ####################################################################
@@ -14,7 +15,7 @@ ELM_SLEEP = 0.05    ################################################
 IS_BLUETOOTH = False #True    ####################################
 
 ELM_IP = "192.168.0.10"
-#ELM_IP = "127.0.0.1"
+ELM_IP = "127.0.0.1"
 ELM_PORT = 35000
 
 ################################
@@ -27,7 +28,10 @@ ELM327_ADDRESS = "73:2F:24:40:CD:D3"  # BROM
 ################################
 ################################
 
-LOG_FILE = "/storage/emulated/0/Download/app2.log"
+if sys.platform == "win32":
+    LOG_FILE = str(Path.home() / "obd2_app.log")
+else:
+    LOG_FILE = "/storage/emulated/0/Download/app2.log"
 
 
 
@@ -86,8 +90,6 @@ class ELM327:
         if self._sock:
             self.close()
 
-       # Проверяем, является ли адрес Bluetooth MAC-адресом (например, 00:11:22:33:44:55)
-        is_bluetooth = ":" in self.ip and len(self.ip) == 17
         is_bluetooth = IS_BLUETOOTH
         
         try:
@@ -248,7 +250,8 @@ class ELM327:
                     #self.logger.info(my_str)
 
                 if duration_sec and (now - t_start) >= duration_sec:
-                    self.cur_speed = speed_ms
+                    if speed_ms is not None:
+                        self.cur_speed = speed_ms
                     self.cur_time = now
                     break
 

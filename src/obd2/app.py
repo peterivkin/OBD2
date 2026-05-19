@@ -5,6 +5,7 @@ VERSION = "0"
 """
 
 import asyncio
+import math
 import threading
 import time
 import toga
@@ -67,6 +68,9 @@ class OBDApp(toga.App):
         self.logger.info("Приложение запущено")
 
         self.data_lock = threading.Lock()
+        self.prev_point = None
+        self.prev_time = None
+        self.distance_m = 0.0
 
         self.error_label = toga.Label(
             "",
@@ -85,7 +89,7 @@ class OBDApp(toga.App):
             style=Pack(margin=8)
         )
 
-        self.speed_label    = self._make_card("Скорость",    "— км/ч ")
+        self.speed_card, self.speed_label = self._make_card("Скорость", "— км/ч ")
 
         # В методе startup класса OBD2App
         self.speed_corr_input = toga.TextInput(
@@ -111,7 +115,7 @@ class OBDApp(toga.App):
             style=Pack(direction=ROW, margin=5)
         )        
 
-        self.dist_label    = self._make_card("Расстояние",    "— м ")
+        self.dist_card, self.dist_label = self._make_card("Расстояние", "— м ")
 
 
         self.clear_btn = toga.Button(
@@ -123,14 +127,14 @@ class OBDApp(toga.App):
         self.clear_btn.enabled = True #False ivkin
 
         row1 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row1.add(self.speed_label)
+        row1.add(self.speed_card)
         row1.add(speed_corr_box)
 
         row2 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row2.add(self.dist_label)
+        row2.add(self.dist_card)
         row2.add(self.clear_btn)
 
-        self.dist_full_label    = self._make_card("Итого",    "— м ")
+        self.dist_full_card, self.dist_full_label = self._make_card("Итого", "— м ")
         self.clear_full_btn = toga.Button(
             "Сбр",
             on_press=self.on_clear_full_dist,
@@ -139,7 +143,7 @@ class OBDApp(toga.App):
         self.clear_full_btn.enabled = True #False ivkin
 
         row3 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row3.add(self.dist_full_label)
+        row3.add(self.dist_full_card)
         row3.add(self.clear_full_btn)
 
 
@@ -339,12 +343,12 @@ class OBDApp(toga.App):
         )
 
 
-    def _make_card(self, title: str, value: str) -> toga.Label:
+    def _make_card(self, title: str, value: str):
         box = toga.Box(style=Pack(direction=COLUMN, margin=6, flex=1))
         box.add(toga.Label(title, style=Pack(text_align=CENTER, font_size=11)))
         lbl = toga.Label(value, style=Pack(text_align=CENTER, font_size=16))
         box.add(lbl)
-        return lbl
+        return box, lbl
 
     # ── Подключение ───────────────────────────────────────────────────────────
 
@@ -524,8 +528,7 @@ class OBDApp(toga.App):
                 
                 # Запускаем отдельный процесс мониторинга доступности через run_coroutine_threadsafe
                 #asyncio.run_coroutine_threadsafe(self.monitor_gps_status(), self.loop)                
-                asyncio.run_coroutine_threadsafe(self.loop)
-                asyncio.run_coroutine_threadsafe(self.monitor_gps_status())
+                asyncio.run_coroutine_threadsafe(self.monitor_gps_status(), self.loop)
 
                 
                 while True:                    # Система сама вызывает on_location_update при изменении координат.
