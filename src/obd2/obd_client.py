@@ -21,7 +21,7 @@ class OBDClient:
         self.full_dist = 0 
         self.speed = 0 
 
-
+    '''
     def get_speed(self) -> int | None:
         """Скорость км/ч. PID 010D."""
         self.speed = self.elm.speed
@@ -32,3 +32,4 @@ class OBDClient:
     def clear_dist(self):
         self.elm.dist = 0
         self.dist = 0 
+    '''

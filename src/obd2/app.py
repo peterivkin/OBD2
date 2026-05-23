@@ -1,4 +1,4 @@
-VERSION = "0"
+VERSION = "1"
 
 """
 Чтение OBDII
@@ -99,7 +99,7 @@ class OBDApp(toga.App):
         )
 
         self.back_switch = toga.Switch(
-            "Обратно",
+            "Обр",
             value=False,
             on_change=self.on_back_toggle,
             style=Pack(margin_left=5)
@@ -230,7 +230,7 @@ class OBDApp(toga.App):
             ## проверяю gps
             
             # Запуск фоновых задач через asyncio
-            asyncio.create_task(self.check_gps())            
+            #asyncio.create_task(self.check_gps())            
             asyncio.create_task(self.check_status_gps())            
             #self.add_background_task(self.check_gps) 
     ###################
@@ -361,7 +361,7 @@ class OBDApp(toga.App):
 ###########################
 ###########################
             
-            self.connect_btn.text = "1 Подключиться к " 
+            self.connect_btn.text = "Подключиться " 
             self.clear_btn.enabled = True #False
         else:
             self.status_label.text = "Подключаюсь..."

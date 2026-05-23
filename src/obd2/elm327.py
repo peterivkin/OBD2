@@ -73,7 +73,7 @@ class ELM327:
         self.port = port
         self._sock = None
         
-        self.lock = threading.Lock()
+        #self.lock = threading.Lock()
         self.last_error = ""  # ← вместо глобальной ERROR
         
         self.logger = setup_logging(self)
@@ -122,6 +122,8 @@ class ELM327:
 
         self.logger.info("Подключился.")
         self.init() # инициализировал быстрый опрос
+        self.cur_time = time.monotonic()  ## установил текущее время
+        
         return True
 
     def send(self, cmd: str) -> str:
@@ -159,7 +161,10 @@ class ELM327:
         resp = self.send("010D")
         # Удаляем пробелы для надежности парсинга
         parts = str(resp).replace(" ", "")
-        #self.speed = None
+        if len(parts) == 0 : return self.speed
+        if parts == '!@@@@!' : return self.speed # это обработка ошибочного ответа эмулятора 
+        
+        self.speed = None   # не снимать комментарий
         try:
             if "410D" in parts:
                 i = parts.index("410D")
@@ -245,7 +250,7 @@ class ELM327:
                     self.dist = distance_m
                     self.full_dist = f_distance_m
                     
-                    my_str = f"t={elapsed:6.1f}s  v={speed_kmh:3d} км/ч  S={distance_m:8.1f} м"
+                    #my_str = f"t={elapsed:6.1f}s  v={speed_kmh:3d} км/ч  S={distance_m:8.1f} м"
                     #print(my_str)
                     #self.logger.info(my_str)
 
