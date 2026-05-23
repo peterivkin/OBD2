@@ -90,7 +90,9 @@ class OBDApp(toga.App):
             style=Pack(margin=8)
         )
 
-        self.speed_card, self.speed_label = self._make_card("Скорость", "— км/ч ")
+        #self.speed_card, self.speed_label = self._make_card("Скорость", "— км/ч ")
+        self.speed_label = toga.Label("— км/ч ", style=Pack(text_align=CENTER, font_size=12))
+
 
         # В методе startup класса OBD2App
         self.speed_corr_input = toga.TextInput(
@@ -116,7 +118,8 @@ class OBDApp(toga.App):
             style=Pack(direction=ROW, margin=5)
         )        
 
-        self.dist_card, self.dist_label = self._make_card("Расстояние", "— м ")
+        #self.dist_card, self.dist_label = self._make_card("Расстояние", "— м ")
+        self.dist_label = toga.Label("— м ", style=Pack(text_align=CENTER, font_size=12))
 
 
         self.clear_btn = toga.Button(
@@ -128,14 +131,18 @@ class OBDApp(toga.App):
         self.clear_btn.enabled = True #False ivkin
 
         row1 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row1.add(self.speed_card)
+        #row1.add(self.speed_card)
+        row1.add(self.speed_label)
         row1.add(speed_corr_box)
 
         row2 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row2.add(self.dist_card)
+        row2.add(self.dist_label)
         row2.add(self.clear_btn)
 
-        self.dist_full_card, self.dist_full_label = self._make_card("Итого", "— м ")
+        #self.dist_full_card, self.dist_full_label = self._make_card("Итого", "— м ")
+        self.dist_full_label = toga.Label("— м ", style=Pack(text_align=CENTER, font_size=12))
+        
+        
         self.clear_full_btn = toga.Button(
             "Сбр",
             on_press=self.on_clear_full_dist,
@@ -144,7 +151,7 @@ class OBDApp(toga.App):
         self.clear_full_btn.enabled = True #False ivkin
 
         row3 = toga.Box(style=Pack(direction=ROW, margin=4))
-        row3.add(self.dist_full_card)
+        row3.add(self.dist_full_label)
         row3.add(self.clear_full_btn)
 
 
