@@ -2,6 +2,6 @@
 ::git branch -M main
 ::git push -u origin main
 git add .
-git commit -m "Правки 2 "
+git commit -m "РџСЂР°РІРєРё 2 "
 
-::git remote add origin https://github.com/ваш_логин/ваш_репозиторий.git
+::git remote add origin https://github.com/РІР°С€_Р»РѕРіРёРЅ/РІР°С€_СЂРµРїРѕР·РёС‚РѕСЂРёР№.git
