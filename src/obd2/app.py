@@ -72,6 +72,7 @@ class OBDApp(toga.App):
         self.prev_point = None
         self.prev_time = None
         self.distance_m = 0.0
+        self.total_time_sec = 0
 
         self.error_label = toga.Label(
             "",
@@ -85,10 +86,16 @@ class OBDApp(toga.App):
 
         self.connect_btn = toga.Button(
 #            "Подключиться к " + ELM327_ADDRESS,
-            "Подкл. " + VERSION ,
+            "Вкл " + VERSION ,
             on_press=self.on_connect,
-            style=Pack(margin=8)
+            style=Pack(margin=4)
         )
+
+        row0 = toga.Box(style=Pack(direction=ROW, margin=4))
+        row0.add(self.connect_btn)
+        row0.add(self.status_label)
+
+
 
         #self.speed_card, self.speed_label = self._make_card("Скорость", "— км/ч ")
         self.speed_label = toga.Label("— км/ч ", style=Pack(text_align=CENTER, font_size=12))
@@ -97,8 +104,8 @@ class OBDApp(toga.App):
         # В методе startup класса OBD2App
         self.speed_corr_input = toga.TextInput(
             value="1.0", 
-            placeholder="Коэфф. скорости (напр. 1.05)",
-            style=Pack(width=100, margin_left=5)
+            placeholder="Коэфф.",
+            style=Pack(width=70, margin_left=5)
         )
 
         self.back_switch = toga.Switch(
@@ -112,7 +119,7 @@ class OBDApp(toga.App):
         speed_corr_box = toga.Box(
             children=[
                 self.back_switch,
-                toga.Label("Коррекция:", style=Pack(margin_right=5)),
+                toga.Label("Корр:", style=Pack(margin_right=5)),
                 self.speed_corr_input,
             ],
             style=Pack(direction=ROW, margin=5)
@@ -123,12 +130,17 @@ class OBDApp(toga.App):
 
 
         self.clear_btn = toga.Button(
-            "Сбр",
+            "Сб",
             on_press=self.on_clear_dist,
             #on_press=self.on_distance,
-            style=Pack(margin=8)
+            style=Pack(margin=4)
         )
         self.clear_btn.enabled = True #False ivkin
+        self.total_time_sec_label = toga.Label("— sec", style=Pack(text_align=CENTER, font_size=12))
+        #self.total_time_sec = 0
+
+
+
 
         row1 = toga.Box(style=Pack(direction=ROW, margin=4))
         #row1.add(self.speed_card)
@@ -138,15 +150,19 @@ class OBDApp(toga.App):
         row2 = toga.Box(style=Pack(direction=ROW, margin=4))
         row2.add(self.dist_label)
         row2.add(self.clear_btn)
+        row2.add(self.total_time_sec_label)
+        
+        
+        
 
         #self.dist_full_card, self.dist_full_label = self._make_card("Итого", "— м ")
         self.dist_full_label = toga.Label("— м ", style=Pack(text_align=CENTER, font_size=12))
         
         
         self.clear_full_btn = toga.Button(
-            "Сбр",
+            "Сб",
             on_press=self.on_clear_full_dist,
-            style=Pack(margin=8)
+            style=Pack(margin=4)
         )
         self.clear_full_btn.enabled = True #False ivkin
 
@@ -158,8 +174,8 @@ class OBDApp(toga.App):
 #########################################
 # --- UI GPS---
 #########################################
-        self.lbl_gps_pos = toga.Label("Координаты: —", style=Pack(margin=10))
-        self.lbl_gps_dist = toga.Label("Дистанция: 0.0 м", style=Pack(margin=10))
+        self.lbl_gps_pos = toga.Label("Коор: ", style=Pack(margin=10))
+        self.lbl_gps_dist = toga.Label("Дист: 0.0 м", style=Pack(margin=10))
         self.lbl_gps_status = toga.Label("Готов", style=Pack(margin=10))
         row4 = toga.Box(style=Pack(direction=ROW, margin=4))
         row4.add(self.lbl_gps_pos)
@@ -174,28 +190,57 @@ class OBDApp(toga.App):
             on_change=self.on_speed_limit_change,
             style=Pack(width=100, margin_left=5)
         )        
+        # Выбор процента скорости
+        prc_values = [str(x) for x in range(100, 40, -5)]
+        self.prc = 100  # Переменная для хранения процента
+        self.prc_limit = toga.Selection(
+            items=prc_values,
+            on_change=self.on_prc_limit_change,
+            style=Pack(width=100, margin_left=5)
+        )        
+
         row5 = toga.Box(
             children=[
                 toga.Label("Лимит скорости:", style=Pack(margin_right=5)),
-                self.speed_limit_select
+                self.speed_limit_select,
+                self.prc_limit
             ],
             style=Pack(direction=ROW, margin=4)
         )
-        
+
 ########################################
+        self.data = []                
+
+        self.obd_table = toga.Table(
+            columns=["N", "Лим","Дист(м)","Сек","Прц"],
+            data= self.data,
+            style=Pack(flex=1, margin=5)
+        )
+
+        main_box = toga.Box(style=Pack(direction=COLUMN, flex=1, margin=5))
+        #main_box.add(self.error_label)
+        #main_box.add(self.status_label)
+        #main_box.add(self.connect_btn)
+        
+        main_box.add(row0)
+        
+        
+
+        main_box.add(row2) # малая дистанция
+        main_box.add(row3) # общая дистанция
+
+        #######################################################
+        # main_box.add(row4) пока не показываю координаты !!!!!!!!!
+        #######################################################
 
 
-        main_box = toga.Box(style=Pack(direction=COLUMN, margin=10))
-        main_box.add(self.error_label)
-        main_box.add(self.status_label)
-        main_box.add(self.connect_btn)
-        main_box.add(row1)
-        main_box.add(row2)
-        #main_box.add(self.clear_btn)
+        main_box.add(row1)   # скорость и коррекция
 
-        main_box.add(row3)
-        main_box.add(row4)
-        main_box.add(row5)
+
+
+        main_box.add(row5)   # лимит скорости 
+        main_box.add(self.obd_table)
+
 
         scroll = toga.ScrollContainer(
             content=main_box,
@@ -203,7 +248,10 @@ class OBDApp(toga.App):
             style=Pack(flex=1)
         )
 
+
+
         self.main_window = toga.MainWindow(title="OBD-II Monitor")
+        #self.main_window.content = main_box
         self.main_window.content = scroll
         self.main_window.show()
 
@@ -240,7 +288,7 @@ class OBDApp(toga.App):
             # Запуск фоновых задач через asyncio
             #asyncio.create_task(self.check_gps())            
             asyncio.create_task(self.check_status_gps())            
-            #self.add_background_task(self.check_gps) 
+            self.add_background_task(self.check_gps) 
     ###################
 
 
@@ -284,12 +332,47 @@ class OBDApp(toga.App):
         self.prev_time = None
         self.lbl_gps_dist.text = "Дистанция: 0.0 м"
 
+
+    def on_prc_limit_change(self, widget):
+        self.prc = int(widget.value)
+        
+
     def on_speed_limit_change(self, widget):
         """Обработчик изменения лимита скорости."""
         try:
             self.speed_limit = int(widget.value)
             self.logger.info(f"Установлен лимит скорости: {self.speed_limit}")
-        except (ValueError, TypeError):
+            with self.data_lock:
+
+
+                #self.table_add_row("л ", self.speed_limit, f"{int(float(self.elm.dist))}")    
+                if (len(self.data) == 0 ) :       
+                    self.data.insert(0, [ 1, self.speed_limit, "0" , "0", self.prc])    # Работает так -------------
+                else :
+                    cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
+                    prc = self.data[0][4]                   # процент скорости
+                    dist = self.elm.dist                    # метры
+                    time = dist / (cur_m_speed * prc / 100 )
+                    self.data[0][2] = f"{int(float(dist))}"
+                    self.data[0][3] = f"{int(float(time))}"
+                    self.data.insert(0,[ len(self.data) + 1, self.speed_limit, "0" , "0", self.prc])    # Работает так -------------
+                    
+                #self.data.insert(0,( self.speed_limit, "0" , "0" ))    # Работает так -------------
+                self.obd_table.data = self.data  # обновляет таблицу    # Работает так -------------
+            
+                self.obd.elm.dist = 0
+                self.obd.dist = 0
+                asyncio.run_coroutine_threadsafe(
+                    self._update_ui_async(),
+                    self.loop
+                )        
+            #self.elm.dist = 0                # сбросил в 0 
+            #print(self.data)
+            
+        except (ValueError, TypeError) as e:
+            error_msg = str(e)
+            self.logger.error(error_msg)
+            print(error_msg)
             pass
 
     def on_back_toggle(self, widget):
@@ -369,7 +452,7 @@ class OBDApp(toga.App):
 ###########################
 ###########################
             
-            self.connect_btn.text = "Подключиться " 
+            self.connect_btn.text = "Вкл" 
             self.clear_btn.enabled = True #False
         else:
             self.status_label.text = "Подключаюсь..."
@@ -409,7 +492,7 @@ class OBDApp(toga.App):
         self.connect_btn.enabled = True
         if success:            
             self.status_label.text = "Подключено к ELM327"
-            self.connect_btn.text = "Отключиться"
+            self.connect_btn.text = "Выкл"
             self.error_label.text = ""
             self.clear_btn.enabled = True
             self._monitoring = True
@@ -426,7 +509,7 @@ class OBDApp(toga.App):
         else:
             self.status_label.text = "Ошибка подключения"
             self.error_label.text = error_msg
-            self.connect_btn.text = "Подключиться" #+ ELM327_ADDRESS
+            self.connect_btn.text = "Вкл" #+ ELM327_ADDRESS
 
     # ── Мониторинг ────────────────────────────────────────────────────────────
     def _monitor_loop(self):
@@ -449,6 +532,7 @@ class OBDApp(toga.App):
                     self._on_monitor_error(str(e)),
                     self.loop
                 )
+                #print(str(e))
                 break#            time.sleep(1.0)
 
 
@@ -462,15 +546,36 @@ class OBDApp(toga.App):
         self.koef = corr
         self.elm.back= self.back_switch.value
         
-        self.speed_label.text = f"{self.elm.speed} - км/ч"
-        self.dist_label.text = f"{int(float(self.elm.dist))}-м | корр.{int(float(self.elm.dist) * float(self.koef) )}-м" 
-        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | корр.{int(float(self.elm.full_dist) * float(self.koef) )}-м" 
+        self.speed_label.text = f"{self.elm.speed} - км//ч"
+        self.dist_label.text = f"{int(float(self.elm.dist))}-м | кр.{int(float(self.elm.dist) * float(self.koef) )}"
+        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | кр.{int(float(self.elm.full_dist) * float(self.koef) )}"
+
+        lat_text = self.lbl_gps_pos.text.replace("Координаты: ", "")
+        lat, lon = (lat_text.split(", ") + ["—", "—"])[:2] if "," in lat_text else ("—", "—")
+        #########################################################################################
+        #########################################################################################
+        #########################################################################################
+        #########################################################################################
+        ########### Пересчитываю времена
+        tot_sec = 0
+        for item in self.data:
+            tot_sec += int(item[3])
+
+        cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
+        prc = self.data[0][4]                   # процент скорости
+        dist = self.elm.dist                    # метры
+        tot_sec += dist / (cur_m_speed * prc / 100 )
+           
+        self.total_time_sec_label.text = f"{int(float(tot_sec))}-сек"
+        #########################################################################################
+        #########################################################################################
+        
 
     async def _on_monitor_error(self, msg: str):
         self._monitoring = False
         self.status_label.text = "Соединение потеряно"
         self.error_label.text = msg
-        self.connect_btn.text = "Подключиться к WiFi"
+        self.connect_btn.text = "Вкл"
         #self.clear_btn.enabled = True #False ivkin
     # ── DTC ───────────────────────────────────────────────────────────────────
 

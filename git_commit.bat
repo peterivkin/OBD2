@@ -2,6 +2,6 @@
 ::git branch -M main
 ::git push -u origin main
 git add .
-git commit -m "Почистил интерфейс "
+git commit -m "Добавил расчет времени"
 
 ::git remote add origin https://github.com/ваш_логин/ваш_репозиторий.git
