@@ -73,6 +73,7 @@ class OBDApp(toga.App):
         self.prev_time = None
         self.distance_m = 0.0
         self.total_time_sec = 0
+        self.elapsed = 0
 
         self.error_label = toga.Label(
             "",
@@ -91,8 +92,24 @@ class OBDApp(toga.App):
             style=Pack(margin=4)
         )
 
+        self._sw_running = False
+        self._sw_start = None
+        self._sw_elapsed = 0.0
+
+        self.stopwatch_btn = toga.Button(
+            "СМ",
+            on_press=self.on_stopwatch_toggle,
+            style=Pack(margin=4)
+        )
+        self.stopwatch_label = toga.Label(
+            "0.0 с",
+            style=Pack(text_align=CENTER, margin=4, font_size=12)
+        )
+
         row0 = toga.Box(style=Pack(direction=ROW, margin=4))
         row0.add(self.connect_btn)
+        row0.add(self.stopwatch_btn)
+        row0.add(self.stopwatch_label)
         row0.add(self.status_label)
 
 
@@ -165,10 +182,13 @@ class OBDApp(toga.App):
             style=Pack(margin=4)
         )
         self.clear_full_btn.enabled = True #False ivkin
+        self.delta_time_sec_label = toga.Label("— sec", style=Pack(text_align=CENTER, font_size=12))
+
 
         row3 = toga.Box(style=Pack(direction=ROW, margin=4))
         row3.add(self.dist_full_label)
         row3.add(self.clear_full_btn)
+        row3.add(self.delta_time_sec_label)    # время отставания
 
 
 #########################################
@@ -255,6 +275,7 @@ class OBDApp(toga.App):
         self.main_window.content = scroll
         self.main_window.show()
 
+        self.add_background_task(self._stopwatch_loop)
 
         # Включение негаснущего экрана
         if JavaClass:
@@ -384,6 +405,32 @@ class OBDApp(toga.App):
         
         
         self.logger.info(f"Коррекция скорости {status}")
+
+    def on_stopwatch_toggle(self, widget):
+        if self._sw_running:
+            self._sw_elapsed += time.monotonic() - self._sw_start
+            self._sw_start = None
+            self._sw_running = False
+            self.stopwatch_btn.text = "СМ"
+        else:
+            self._sw_start = time.monotonic()
+            self._sw_running = True
+            self.stopwatch_btn.text = "Стоп"
+
+    def _sw_format(self, seconds: float) -> str:
+        m = int(seconds) // 60
+        s = seconds % 60
+        return f"{m}:{s:04.1f}" if m > 0 else f"{s:.1f} с"
+
+    async def _stopwatch_loop(self, widget=None):
+        while True:
+            await asyncio.sleep(0.1)
+            if self._sw_running:
+                elapsed = self._sw_elapsed + (time.monotonic() - self._sw_start)
+            else:
+                elapsed = self._sw_elapsed
+            self.stopwatch_label.text = self._sw_format(elapsed)
+            self.elapsed = elapsed
 
     # ---------- колбэк обновления координат ----------
     def on_location_update(self, service, *, location, altitude, **kwargs):
@@ -567,6 +614,16 @@ class OBDApp(toga.App):
         tot_sec += dist / (cur_m_speed * prc / 100 )
            
         self.total_time_sec_label.text = f"{int(float(tot_sec))}-сек"
+        
+        delta_sec = int(float((tot_sec - self.elapsed )))  # расчетное время минус физическое
+        print(f"{tot_sec} - {self.elapsed}")
+        self.delta_time_sec_label.text = f"{delta_sec}-сек" # время опоздания
+        if delta_sec < 0 : # расчет меньше физики - опаздываем 
+            self.delta_time_sec_label.style.color = 'red'
+        else : 
+            self.delta_time_sec_label.style.color = 'green'
+        
+        
         #########################################################################################
         #########################################################################################
         

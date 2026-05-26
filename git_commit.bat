@@ -2,6 +2,6 @@
 ::git branch -M main
 ::git push -u origin main
 git add .
-git commit -m "Добавил расчет времени"
+git commit -m "Добавил секундомер и опоздание"
 
 ::git remote add origin https://github.com/ваш_логин/ваш_репозиторий.git
