@@ -5,11 +5,26 @@ import socket
 import threading
 import time
 
+
+
 import sys
 import logging
 from pathlib import Path
+
+#from obd2.app import OBDApp
+
+
+
+####################################################################
+data_lock = threading.Lock()
+data_lock_2 = threading.Lock()
+
+
+#print("#"*30, data_lock)
+
 ####################################################################
 ELM_SLEEP = 0.05    ################################################
+#ELM_SLEEP = 1.0     ################################################
 ####################################################################
 
 IS_BLUETOOTH = False #True    ####################################
@@ -31,7 +46,7 @@ ELM327_ADDRESS = "73:2F:24:40:CD:D3"  # BROM
 if sys.platform == "win32":
     LOG_FILE = str(Path.home() / "obd2_app.log")
 else:
-    LOG_FILE = "/storage/emulated/0/Download/app2.log"
+    LOG_FILE = "/storage/emulated/0/Download/app3.log"
 
 
 
@@ -247,11 +262,20 @@ class ELM327:
                     elapsed = now - t_start
 
                     self.speed = speed_kmh
-                    self.dist = distance_m
-                    self.full_dist = f_distance_m
+                    #with data_lock_2:                        
+                    self.dist = int(distance_m)
+                    self.full_dist = int(f_distance_m)
+
+                    #print('1'*10)
+                    #with data_lock:
+                    if len(self.data) > 0 and distance_m > 0 : # сохраняю только положительные значения
+                        self.data[0][2] = int(float(distance_m))
+                    #self.data[0][3] = f"{int(float(elapsed))}"      ######################              
+                    #print(self.data[0])
+                    #print('2'*10)
                     
                     #my_str = f"t={elapsed:6.1f}s  v={speed_kmh:3d} км/ч  S={distance_m:8.1f} м"
-                    #print(my_str)
+                    #print(self.data)
                     #self.logger.info(my_str)
 
                 if duration_sec and (now - t_start) >= duration_sec:

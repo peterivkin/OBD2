@@ -10,6 +10,7 @@ import math
 import threading
 import time
 import toga
+from toga.sources import ListSource
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
 
@@ -24,6 +25,7 @@ logger = setup_logging()
 logger.info(f"Logger : {logger}")
 
 JavaClass = None
+
 
 try:
     # В BeeWare на Android используется Chaquopy, где доступен модуль 'java'
@@ -54,6 +56,13 @@ def haversine_m(lat1, lon1, lat2, lon2):
 
 class OBDApp(toga.App):
 
+    #####################################
+    #####################################
+    #data_lock = threading.Lock()
+    #####################################
+    #####################################
+
+
     def startup(self):
         ###################################################
         # Перенес сюда , где контекст приложения уже создан
@@ -61,14 +70,24 @@ class OBDApp(toga.App):
 
         ###################################################
 
-        print('*' * 50, ELM327_ADDRESS)
+        #print('*' * 50, ELM327_ADDRESS)
+
+
+########################################
+        self.data = []
+        # ListSource для таблицы — обновляет только изменившиеся строки, без перестройки
+        self.table_source = ListSource(
+            accessors=["n", "lim", "dist_m", "sec", "prc"],
+            data=[]
+        )
         self.elm = ELM327()
-        self.obd = OBDClient(self.elm)
+        
+        self.obd = OBDClient(self.elm, data = self.data )
+
         self.monitoring = False
         self.logger = setup_logging(self)
         self.logger.info("Приложение запущено")
 
-        self.data_lock = threading.Lock()
         self.prev_point = None
         self.prev_time = None
         self.distance_m = 0.0
@@ -228,8 +247,7 @@ class OBDApp(toga.App):
             style=Pack(direction=ROW, margin=4)
         )
 
-########################################
-        self.data = []                
+
 
         self.obd_table = toga.Table(
             columns=["N", "Лим","Дист(м)","Сек","Прц"],
@@ -275,7 +293,11 @@ class OBDApp(toga.App):
         self.main_window.content = scroll
         self.main_window.show()
 
-        self.add_background_task(self._stopwatch_loop)
+        #asyncio.run_coroutine_threadsafe(
+        #    self._stopwatch_loop
+        #)        
+        asyncio.create_task(self._stopwatch_loop())
+
 
         # Включение негаснущего экрана
         if JavaClass:
@@ -309,7 +331,7 @@ class OBDApp(toga.App):
             # Запуск фоновых задач через asyncio
             #asyncio.create_task(self.check_gps())            
             asyncio.create_task(self.check_status_gps())            
-            self.add_background_task(self.check_gps) 
+            asyncio.create_task(self.check_gps())
     ###################
 
 
@@ -363,29 +385,37 @@ class OBDApp(toga.App):
         try:
             self.speed_limit = int(widget.value)
             self.logger.info(f"Установлен лимит скорости: {self.speed_limit}")
-            with self.data_lock:
-
+            
+            #print('-==-1'*10, data_lock)
+            with data_lock:
+#######################################################################################
+#######################################################################################
+#######################################################################################
+#######################################################################################
+#######################################################################################
+#######################################################################################
 
                 #self.table_add_row("л ", self.speed_limit, f"{int(float(self.elm.dist))}")    
                 if (len(self.data) == 0 ) :       
-                    self.data.insert(0, [ 1, self.speed_limit, "0" , "0", self.prc])    # Работает так -------------
+                    self.data.insert(0, [ 1, self.speed_limit, 0 , 0 , self.prc])    # Работает так -------------
                 else :
                     cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
                     prc = self.data[0][4]                   # процент скорости
-                    dist = self.elm.dist                    # метры
+                    dist = self.elm.dist * self.koef        # метры с учетом коэффициента
                     time = dist / (cur_m_speed * prc / 100 )
-                    self.data[0][2] = f"{int(float(dist))}"
-                    self.data[0][3] = f"{int(float(time))}"
-                    self.data.insert(0,[ len(self.data) + 1, self.speed_limit, "0" , "0", self.prc])    # Работает так -------------
+                    self.data[0][2] = int(float(dist))
+                    self.data[0][3] = int(float(time))
+                    self.data.insert(0,[ len(self.data) + 1, self.speed_limit, 0 , 0, self.prc])    
                     
-                #self.data.insert(0,( self.speed_limit, "0" , "0" ))    # Работает так -------------
-                self.obd_table.data = self.data  # обновляет таблицу    # Работает так -------------
-            
+                #self.data.insert(0,( self.speed_limit, "0" , "0" ))    
+                self.obd_table.data = self.data  # обновляет таблицу    
+                self.obd_table.refresh()
                 self.obd.elm.dist = 0
                 self.obd.dist = 0
-                asyncio.run_coroutine_threadsafe(
-                    self._update_ui_async(),
-                    self.loop
+                ##############################################
+                asyncio.run_coroutine_threadsafe(       #
+                    self._update_ui_async(),            #   
+                    self.loop                           #
                 )        
             #self.elm.dist = 0                # сбросил в 0 
             #print(self.data)
@@ -538,7 +568,7 @@ class OBDApp(toga.App):
     async def _on_connected_ui(self, success: bool, error_msg: str = ""):
         self.connect_btn.enabled = True
         if success:            
-            self.status_label.text = "Подключено к ELM327"
+            self.status_label.text = "OK"
             self.connect_btn.text = "Выкл"
             self.error_label.text = ""
             self.clear_btn.enabled = True
@@ -550,11 +580,9 @@ class OBDApp(toga.App):
                 corr = 1.0  # Если ввели не число, используем 1.0
             self.koef = corr
             
-            
-            
             threading.Thread(target=self._monitor_loop, daemon=True).start()
         else:
-            self.status_label.text = "Ошибка подключения"
+            self.status_label.text = "Ошибка"
             self.error_label.text = error_msg
             self.connect_btn.text = "Вкл" #+ ELM327_ADDRESS
 
@@ -564,8 +592,9 @@ class OBDApp(toga.App):
         while self.elm.is_connected() and getattr(self, "_monitoring", False):
             try:
                 # подждал изменения коэффициента
-                with self.data_lock:
+                with data_lock:
                     self.elm.measure_distance(1)
+                ###################################################    
                 # Обновление UI
                 if self.loop and self.loop.is_running():
                     # если еще в рабочем потоке, те не зеакрыто приложение
@@ -573,13 +602,22 @@ class OBDApp(toga.App):
                         self._update_ui_async(),
                         self.loop
                     )
+                    asyncio.run_coroutine_threadsafe(
+                        self._on_ref_table(),
+                        self.loop
+                    )
+                    
                 else : break 
+            
+                
+                ##################################################
+                
             except Exception as e:
                 asyncio.run_coroutine_threadsafe(
                     self._on_monitor_error(str(e)),
                     self.loop
                 )
-                #print(str(e))
+                print(str(e))
                 break#            time.sleep(1.0)
 
 
@@ -592,41 +630,75 @@ class OBDApp(toga.App):
             corr = 1.0  # Если ввели не число, используем 1.0
         self.koef = corr
         self.elm.back= self.back_switch.value
-        
-        self.speed_label.text = f"{self.elm.speed} - км//ч"
-        self.dist_label.text = f"{int(float(self.elm.dist))}-м | кр.{int(float(self.elm.dist) * float(self.koef) )}"
-        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | кр.{int(float(self.elm.full_dist) * float(self.koef) )}"
 
         lat_text = self.lbl_gps_pos.text.replace("Координаты: ", "")
         lat, lon = (lat_text.split(", ") + ["—", "—"])[:2] if "," in lat_text else ("—", "—")
+        
         #########################################################################################
         #########################################################################################
         #########################################################################################
         #########################################################################################
         ########### Пересчитываю времена
         tot_sec = 0
-        for item in self.data:
-            tot_sec += int(item[3])
 
-        cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
-        prc = self.data[0][4]                   # процент скорости
-        dist = self.elm.dist                    # метры
-        tot_sec += dist / (cur_m_speed * prc / 100 )
-           
+        dist = int(self.elm.dist * self.koef )       # метры с учетом коэффициента
+
+        #print('-==-0000',dist, self.data)
+        
+        if len(self.data) > 0 :
+            for item in self.data:
+                tot_sec += int(item[3])
+                
+            cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
+            prc = self.data[0][4]                   # процент скорости
+            tot_sec += dist / (cur_m_speed * prc / 100 )
+            ########## подчищаю историю
+            #print('-==-0',dist, self.data)
+            if dist < 0 : ## Дощли до стартовой точки пути который откатываем назад
+                #print('-==-1',dist, self.data)
+                if len(self.data) > 0 :
+                    # удалил последний участок в текущем пути
+                    del self.data[0]
+                    if len(self.data) > 0 :
+                        dist_0 = int(self.data[0][2])
+                        dist_0 += dist
+                        self.data[0][2] = dist_0                    # удалил остаток из нового
+                        dist = int(self.data[0][2] / self.koef)   # обновил в таблице   
+                        # обязательно с блокировкой 
+                        with data_lock:
+                            self.elm.dist  = dist                       # сохранил как текущее + учел коэффициент
+                            self.obd.dist = dist
+                    else :
+                        # Отключаюсь
+                        self._monitoring = False
+                        self.elm.disconnect()
+                        self.status_label.text = "Отключено"
+                        self.connect_btn.text = "Вкл" 
+                        self.clear_btn.enabled = True #False
+                        
+        self.speed_label.text = f"{self.elm.speed} - км/ч"
+        self.dist_label.text = f"{int(float(self.elm.dist))}-м | кр.{int(float(dist) * float(self.koef) )}"
+        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | кр.{int(float(self.elm.full_dist) * float(self.koef) )}"
+
         self.total_time_sec_label.text = f"{int(float(tot_sec))}-сек"
-        
         delta_sec = int(float((tot_sec - self.elapsed )))  # расчетное время минус физическое
-        print(f"{tot_sec} - {self.elapsed}")
+        #print(f"{tot_sec} - {self.elapsed}")
         self.delta_time_sec_label.text = f"{delta_sec}-сек" # время опоздания
-        if delta_sec < 0 : # расчет меньше физики - опаздываем 
+        if delta_sec > 0 : # расчет меньше физики - опаздываем
             self.delta_time_sec_label.style.color = 'red'
-        else : 
+        else :
             self.delta_time_sec_label.style.color = 'green'
-        
+
+
+        # Принудительное обновление таблицы — Toga не отслеживает мутации списка
+        self.obd_table.data = self.data
+        self.obd_table.refresh()        #######################
         
         #########################################################################################
         #########################################################################################
-        
+
+    async def _on_ref_table(self):
+        self.obd_table.refresh()    
 
     async def _on_monitor_error(self, msg: str):
         self._monitoring = False
@@ -638,7 +710,7 @@ class OBDApp(toga.App):
 
     def on_clear_dist(self, widget):
 # В UI-потоке (запись)
-        with self.data_lock:
+        with data_lock:
             self.obd.elm.dist = 0
             self.obd.dist = 0
             asyncio.run_coroutine_threadsafe(
@@ -648,7 +720,7 @@ class OBDApp(toga.App):
 
     def on_clear_full_dist(self, widget):
 # В UI-потоке (запись)
-        with self.data_lock:
+        with data_lock:
             self.obd.elm.dist = 0
             self.obd.elm.full_dist = 0
             self.obd.dist = 0

@@ -15,8 +15,9 @@ def _parse_hex(response: str) -> list[int]:
 
 
 class OBDClient:
-    def __init__(self, elm: ELM327):
+    def __init__(self, elm: ELM327, data):
         self.elm = elm
+        self.elm.data = data
         self.dist = 0 
         self.full_dist = 0 
         self.speed = 0 
