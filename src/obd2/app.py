@@ -10,6 +10,8 @@ import math
 import threading
 import time
 import toga
+
+from datetime import timedelta
 from toga.sources import ListSource
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
@@ -93,6 +95,8 @@ class OBDApp(toga.App):
         self.distance_m = 0.0
         self.total_time_sec = 0
         self.elapsed = 0
+        self._beep_active = False   # антидребезг: True пока сигнал уже играет
+        self.koef = 1.0             # коэффициент коррекции скорости (до подключения = 1.0)
 
         self.error_label = toga.Label(
             "",
@@ -210,6 +214,7 @@ class OBDApp(toga.App):
         row3.add(self.delta_time_sec_label)    # время отставания
 
 
+        '''
 #########################################
 # --- UI GPS---
 #########################################
@@ -220,6 +225,7 @@ class OBDApp(toga.App):
         row4.add(self.lbl_gps_pos)
         row4.add(self.lbl_gps_dist)
         row4.add(self.lbl_gps_status)
+        '''
         
         # Выбор лимита скорости
         speed_values = [str(x) for x in range(10, 110, 10)]
@@ -325,21 +331,18 @@ class OBDApp(toga.App):
             except Exception as e:
                 self.logger.error(f"Не удалось активировать WakeLock: {e}")
 
+
+########################################################### GPS ###################################
+########################################################### GPS ###################################
+########################################################### GPS ###################################
     ###################
             ## проверяю gps
             
             # Запуск фоновых задач через asyncio
             #asyncio.create_task(self.check_gps())            
-            asyncio.create_task(self.check_status_gps())            
-            asyncio.create_task(self.check_gps())
+            #asyncio.create_task(self.check_status_gps())            
+            #asyncio.create_task(self.check_gps())
     ###################
-
-
-
-
-########################################################### GPS ###################################
-########################################################### GPS ###################################
-########################################################### GPS ###################################
 
     # ---------- обработчики ----------
     async def on_start(self, widget):
@@ -383,6 +386,11 @@ class OBDApp(toga.App):
     def on_speed_limit_change(self, widget):
         """Обработчик изменения лимита скорости."""
         try:
+                        
+            #self.beep()              # 1000 Гц, 300 мс — стандартный сигнал
+            #self.beep(1200, 200)     # короткий высокий — предупреждение
+            #self.beep(600, 800)      # длинный низкий — ошибка/отключение            
+
             self.speed_limit = int(widget.value)
             self.logger.info(f"Установлен лимит скорости: {self.speed_limit}")
             
@@ -395,16 +403,16 @@ class OBDApp(toga.App):
 #######################################################################################
 #######################################################################################
 
-                #self.table_add_row("л ", self.speed_limit, f"{int(float(self.elm.dist))}")    
+                #self.table_add_row("л ", self.speed_limit, f"{round(float(self.elm.dist))}")    
                 if (len(self.data) == 0 ) :       
                     self.data.insert(0, [ 1, self.speed_limit, 0 , 0 , self.prc])    # Работает так -------------
                 else :
-                    cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
+                    cur_m_speed = round(self.data[0][1])/3.6  # скорость м/сек
                     prc = self.data[0][4]                   # процент скорости
                     dist = self.elm.dist * self.koef        # метры с учетом коэффициента
                     time = dist / (cur_m_speed * prc / 100 )
-                    self.data[0][2] = int(float(dist))
-                    self.data[0][3] = int(float(time))
+                    self.data[0][2] = round(float(dist))
+                    self.data[0][3] = round(float(time))
                     self.data.insert(0,[ len(self.data) + 1, self.speed_limit, 0 , 0, self.prc])    
                     
                 #self.data.insert(0,( self.speed_limit, "0" , "0" ))    
@@ -447,10 +455,15 @@ class OBDApp(toga.App):
             self._sw_running = True
             self.stopwatch_btn.text = "Стоп"
 
-    def _sw_format(self, seconds: float) -> str:
-        m = int(seconds) // 60
-        s = seconds % 60
-        return f"{m}:{s:04.1f}" if m > 0 else f"{s:.1f} с"
+    def time_format(self, seconds: float) -> str:
+        #m = round(seconds) // 60
+        #s = seconds % 60
+        #return f"{m}:{s:04.1f}" if m > 0 else f"{s:.1f} с"
+        m, s = divmod(int(seconds), 60)
+        h, m = divmod(m, 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"        
+        #str(timedelta(seconds=3725))  # → "1:02:05"
+        
 
     async def _stopwatch_loop(self, widget=None):
         while True:
@@ -459,7 +472,7 @@ class OBDApp(toga.App):
                 elapsed = self._sw_elapsed + (time.monotonic() - self._sw_start)
             else:
                 elapsed = self._sw_elapsed
-            self.stopwatch_label.text = self._sw_format(elapsed)
+            self.stopwatch_label.text = self.time_format(elapsed)
             self.elapsed = elapsed
 
     # ---------- колбэк обновления координат ----------
@@ -501,6 +514,33 @@ class OBDApp(toga.App):
 #################################################
 #################################################
 #################################################
+
+    def beep(self, freq=600, duration_ms=500, sec_sleep = 1):
+        """Звуковой сигнал в отдельном потоке — не блокирует UI.
+        По завершении сбрасывает _beep_active, разрешая следующий сигнал.
+        звучать каждый count раз
+        """
+        def _play():
+            try:
+                if JavaClass:
+                    ToneGenerator = JavaClass("android/media/ToneGenerator")
+                    AudioManager  = JavaClass("android/media/AudioManager")
+                    tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+                    tg.startTone(ToneGenerator.TONE_PROP_BEEP, duration_ms)
+                    #time.sleep(duration_ms / 1000)
+                    time.sleep(sec_sleep)
+                else:
+                    import winsound
+                    winsound.Beep(freq, duration_ms)
+                    time.sleep(sec_sleep)
+            except Exception as e:
+                self.logger.warning(f"beep: {e}")
+            finally:
+                self._beep_active = False   # готов к следующему сигналу
+
+        if not self._beep_active:
+            self._beep_active = True
+            threading.Thread(target=_play, daemon=True).start()
 
     def keep_screen_on(self):
         # Доступ к Android Activity через бэкенд Toga
@@ -631,8 +671,8 @@ class OBDApp(toga.App):
         self.koef = corr
         self.elm.back= self.back_switch.value
 
-        lat_text = self.lbl_gps_pos.text.replace("Координаты: ", "")
-        lat, lon = (lat_text.split(", ") + ["—", "—"])[:2] if "," in lat_text else ("—", "—")
+        #lat_text = self.lbl_gps_pos.text.replace("Координаты: ", "")
+        #lat, lon = (lat_text.split(", ") + ["—", "—"])[:2] if "," in lat_text else ("—", "—")
         
         #########################################################################################
         #########################################################################################
@@ -641,7 +681,7 @@ class OBDApp(toga.App):
         ########### Пересчитываю времена
         tot_sec = 0
 
-        dist = int(self.elm.dist * self.koef )       # метры с учетом коэффициента
+        dist = round(self.elm.dist * self.koef )       # метры с учетом коэффициента
 
         #print('-==-0000',dist, self.data)
         
@@ -649,7 +689,7 @@ class OBDApp(toga.App):
             for item in self.data:
                 tot_sec += int(item[3])
                 
-            cur_m_speed = int(self.data[0][1])/3.6  # скорость м/сек
+            cur_m_speed = round(self.data[0][1])/3.6  # скорость м/сек
             prc = self.data[0][4]                   # процент скорости
             tot_sec += dist / (cur_m_speed * prc / 100 )
             ########## подчищаю историю
@@ -660,10 +700,10 @@ class OBDApp(toga.App):
                     # удалил последний участок в текущем пути
                     del self.data[0]
                     if len(self.data) > 0 :
-                        dist_0 = int(self.data[0][2])
+                        dist_0 = round(self.data[0][2])
                         dist_0 += dist
                         self.data[0][2] = dist_0                    # удалил остаток из нового
-                        dist = int(self.data[0][2] / self.koef)   # обновил в таблице   
+                        dist = round(self.data[0][2] / self.koef)   # обновил в таблице   
                         # обязательно с блокировкой 
                         with data_lock:
                             self.elm.dist  = dist                       # сохранил как текущее + учел коэффициент
@@ -677,17 +717,19 @@ class OBDApp(toga.App):
                         self.clear_btn.enabled = True #False
                         
         self.speed_label.text = f"{self.elm.speed} - км/ч"
-        self.dist_label.text = f"{int(float(self.elm.dist))}-м | кр.{int(float(dist) * float(self.koef) )}"
-        self.dist_full_label.text = f"{int(float(self.elm.full_dist))}-м | кр.{int(float(self.elm.full_dist) * float(self.koef) )}"
+        self.dist_label.text = f"{round(self.elm.dist)}-м | кр.{round(dist)}"
+        self.dist_full_label.text = f"{round(self.elm.full_dist)}-м | кр.{round(self.elm.full_dist * self.koef)}"
 
-        self.total_time_sec_label.text = f"{int(float(tot_sec))}-сек"
-        delta_sec = int(float((tot_sec - self.elapsed )))  # расчетное время минус физическое
+        self.total_time_sec_label.text = f"{self.time_format(round(float(tot_sec)))}"
+        delta_sec = round(float((tot_sec - self.elapsed )))  # расчетное время минус физическое
         #print(f"{tot_sec} - {self.elapsed}")
         self.delta_time_sec_label.text = f"{delta_sec}-сек" # время опоздания
-        if delta_sec > 0 : # расчет меньше физики - опаздываем
+        if delta_sec < 0:   # опаздываем
             self.delta_time_sec_label.style.color = 'red'
-        else :
+            self.beep(600, 1000, 5)    # сигнал раз за раз, не каждую секунду
+        else:
             self.delta_time_sec_label.style.color = 'green'
+            self._beep_active = False   # сбросить флаг когда перестали опаздывать
 
 
         # Принудительное обновление таблицы — Toga не отслеживает мутации списка
